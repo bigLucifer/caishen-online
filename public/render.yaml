@@ -1,0 +1,14 @@
+# Render.com 免费 Web Service 蓝图（可选，一键部署）
+# 用法：把这个文件和 caishen-online 一起推到 GitHub，Render 会自动读取
+services:
+  - type: web
+    name: caishen-online
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
