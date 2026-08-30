@@ -66,31 +66,50 @@
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .row + .row { margin-top: 8px; }
 
-  /* 卡牌 */
+  /* 卡牌 —— 精致版 */
   .card {
-    display: inline-flex; flex-direction: column; align-items: center; justify-content: space-between;
-    width: 62px; height: 92px; background: #fff; border: 2px solid #333; border-radius: 8px;
-    padding: 6px 4px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,.2);
-    position: relative; flex-shrink: 0; transition: transform .12s ease;
+    position: relative; display: inline-block;
+    width: 64px; height: 96px; border-radius: 8px;
+    background: #fdfaf0; box-shadow: 0 2px 6px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.6);
+    flex-shrink: 0; transition: transform .12s ease; overflow: hidden;
+    border: 1.5px solid rgba(0,0,0,.15);
   }
-  .card.small { width: 50px; height: 74px; font-size: 12px; padding: 4px 2px; }
-  .card.faction-qinglong  { border-color: var(--green);  color: var(--green); }
-  .card.faction-baihu     { border-color: var(--yellow); color: #a67c15; }
-  .card.faction-zhuque    { border-color: var(--red);    color: var(--red); }
-  .card.faction-xuanwu    { border-color: var(--blue);   color: var(--blue); }
-  .card.special-caishen   { border-color: var(--gold-deep); background: linear-gradient(135deg,#fff8d0,#f5d97c); color: var(--gold-deep); }
-  .card.special-qionggui  { border-color: #6a6055; background: #d8d0c2; color: #4a4238; }
-  .card.disabled { opacity: .35; filter: grayscale(.6); }
+  .card.small { width: 52px; height: 78px; }
+
+  /* 阵营主色调 —— 通过 CSS 变量控制角标、图腾颜色 */
+  .card.faction-qinglong  { --fc: #2f7a3a; --fbg: #eaf5eb; --fbg2: #d5eadb; }
+  .card.faction-baihu     { --fc: #a67c15; --fbg: #fff5d6; --fbg2: #f3e2a8; }
+  .card.faction-zhuque    { --fc: #c23a2f; --fbg: #ffece8; --fbg2: #f8cec5; }
+  .card.faction-xuanwu    { --fc: #2a4b8d; --fbg: #e8effa; --fbg2: #c8d6ef; }
+  .card.special-caishen   { --fc: #8a6a1e; --fbg: #fff8d0; --fbg2: #f5d97c; }
+  .card.special-qionggui  { --fc: #5a5045; --fbg: #e6e0d3; --fbg2: #c9bfa8; }
+
+  /* 卡面渐变底 */
+  .card.faction-qinglong, .card.faction-baihu, .card.faction-zhuque, .card.faction-xuanwu,
+  .card.special-caishen, .card.special-qionggui {
+    background: linear-gradient(160deg, var(--fbg) 0%, #fdfaf0 55%, var(--fbg2) 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,255,255,.7), inset 0 -30px 40px -20px var(--fbg2);
+    border-color: var(--fc);
+  }
+
+  /* 卡牌内部布局用 SVG，直接嵌 */
+  .card svg { display: block; width: 100%; height: 100%; }
+
+  .card.disabled { opacity: .38; filter: saturate(.5); }
   .card.selectable { cursor: pointer; }
-  .card.selectable:active { transform: translateY(-6px) scale(1.05); box-shadow: 0 6px 12px rgba(0,0,0,.3); }
-  .card .num { font-size: 22px; line-height: 1; }
-  .card.small .num { font-size: 17px; }
-  .card .faction { font-size: 12px; letter-spacing: 1px; }
-  .card.small .faction { font-size: 11px; }
-  .card .icon { font-size: 20px; }
-  .card.small .icon { font-size: 16px; }
-  .card.back { background: repeating-linear-gradient(45deg, #8a1c15 0 8px, #6a1410 8px 16px); color:#d9c26e; border-color:#4a0f0b; justify-content:center; align-items:center; }
-  .card.back::before { content: "财"; font-size: 30px; color: #d9c26e; }
+  .card.selectable:active { transform: translateY(-6px) scale(1.05); box-shadow: 0 8px 16px rgba(0,0,0,.35); }
+  @media (hover:hover) { .card.selectable:hover { transform: translateY(-4px); box-shadow: 0 6px 14px rgba(0,0,0,.3); } }
+
+  /* 牌背 */
+  .card.back {
+    background:
+      radial-gradient(ellipse at center, #a02620 0 40%, #6a1410 100%),
+      repeating-linear-gradient(45deg, #7a1811 0 8px, #5a0f0b 8px 16px);
+    background-blend-mode: overlay;
+    border-color: #4a0f0b;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35), inset 0 0 0 2px #d9c26e, inset 0 0 0 4px #4a0f0b;
+  }
+  .card.back svg { fill: #d9c26e; }
 
   /* 对战 */
   .top-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 12px;
@@ -443,7 +462,7 @@ function renderGame(app) {
         return `
           <div class="player-card ${(isTurn||isBidding)?'active':''} ${isYou?'you':''} ${!p.connected?'offline':''}">
             <div class="name">
-              ${escapeHtml(p.name)}
+              ${p.isAI?'🤖':''}${escapeHtml(p.name)}
               ${p.isHost?'<span class="tag-host">房主</span>':''}
               ${p.seat===v.dealerSeat?'<span class="tag-dealer">庄</span>':''}
               ${p.seat===v.roundLeadSeat?'<span class="tag-lead">首出</span>':''}
@@ -500,17 +519,22 @@ function renderWaiting(app, v) {
       ${v.players.map(p => `
         <div style="display:flex; align-items:center; padding: 8px; border-bottom: 1px dashed #d4bf8c;">
           <div style="flex:1; font-weight:600;">
-            ${escapeHtml(p.name)}
+            ${p.isAI?'🤖 ':''}${escapeHtml(p.name)}
             ${p.isHost?'<span class="tag-host">房主</span>':''}
+            ${p.isAI?'<span class="tag-off" style="background:#7a5c1f;">AI</span>':''}
             ${p.seat===S.mySeat?' <span style="color:var(--red); font-size:11px;">（你）</span>':''}
           </div>
+          ${isHost && p.isAI ? `<button class="ghost" style="padding:4px 10px; font-size:12px; min-height:auto;" onclick="wsSend({type:'removeAI',seat:${p.seat}})">移除</button>` : ''}
         </div>
       `).join('')}
+      ${isHost && v.players.length < 6 ? `
+        <button class="ghost" style="width:100%; margin-top:10px;" onclick="wsSend({type:'addAI'})">+ 添加 AI 玩家</button>
+      ` : ''}
     </div>
     <div class="panel">
       ${isHost ? `
         <button style="width:100%;" ${v.players.length<3?'disabled':''} onclick="wsSend({type:'start'})">
-          ${v.players.length<3?`至少 3 人才能开局（还差 ${3-v.players.length} 人）`:'开始游戏'}
+          ${v.players.length<3?`至少 3 人才能开局（还差 ${3-v.players.length}，可 +AI）`:'开始游戏'}
         </button>
       ` : `<div style="text-align:center; color:#8a6a1e; font-size:14px;">等待房主开局…</div>`}
     </div>
@@ -522,11 +546,20 @@ function renderMyHand(v) {
   if (S.mySeat == null || !v.myHand) return '';
   const hand = v.myHand;
   const myTurn = v.pendingBidSeat >= v.players.length && v.turnSeat === S.mySeat;
+  let statusText = '';
+  if (v.pendingBidSeat < v.players.length) {
+    const cur = v.bidOrder[v.pendingBidSeat];
+    statusText = cur === S.mySeat ? '<span style="color:var(--red);">请先押把</span>' : `<span style="color:#8a6a1e;">等 ${escapeHtml(v.players[cur].name)} 押把</span>`;
+  } else if (myTurn) {
+    statusText = '<span style="color:var(--red);">轮到你出牌</span>';
+  } else {
+    statusText = `<span style="color:#8a6a1e;">等 ${escapeHtml(v.players[v.turnSeat].name)} 出牌</span>`;
+  }
   return `
     <div class="hand-area">
       <div class="hand-title">
         <span>你的手牌 · ${hand.length} 张</span>
-        ${myTurn ? '<span style="color:var(--red);">轮到你出牌</span>' : ''}
+        ${statusText}
       </div>
       <div class="hand-cards">
         ${hand.map((c, i) => {
@@ -654,14 +687,113 @@ function clientCardShape(c) {
   return { type: 'normal', faction: c.f, num: c.n };
 }
 
+// ============ 图腾 SVG（每个阵营一套） ============
+// 用 fill="currentColor" 让颜色随 --fc 变
+const TOTEMS = {
+  qinglong: `<path d="M20 55 Q35 30 50 45 T80 40 Q70 55 55 55 T20 55 Z M62 32 a4 4 0 1 1 0.1 0 M22 62 Q40 68 60 62 M18 68 Q35 74 62 68" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62" cy="32" r="2.2" fill="currentColor"/>`,
+  baihu: `<path d="M28 32 Q40 22 52 32 L58 30 L60 36 L70 34 L64 42 Q60 55 50 58 Q40 55 36 42 L30 34 L32 30 Z M42 44 a2 2 0 1 1 0.1 0 M56 44 a2 2 0 1 1 0.1 0 M46 52 L52 52 M40 26 L38 20 M60 26 L62 20" fill="currentColor" opacity=".95" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M22 62 Q34 68 50 66 T78 62 M25 70 Q40 74 55 72" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  zhuque: `<path d="M50 20 Q35 30 30 50 Q35 65 50 70 Q65 65 70 50 Q65 30 50 20 Z M50 24 Q45 34 43 46 Q45 58 50 66 Q55 58 57 46 Q55 34 50 24 Z M30 50 Q22 46 15 52 Q25 55 32 54 M70 50 Q78 46 85 52 Q75 55 68 54 M42 40 L38 32 M58 40 L62 32" fill="currentColor" opacity=".9" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="46" cy="34" r="1.5" fill="#fff"/>`,
+  xuanwu: `<ellipse cx="50" cy="52" rx="26" ry="18" fill="currentColor" opacity=".85"/><path d="M50 34 L38 42 L38 62 L50 70 L62 62 L62 42 Z" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M50 34 L50 70 M38 42 L62 62 M62 42 L38 62 M32 52 Q22 44 20 30 Q30 34 34 44 M68 52 Q78 44 80 30 Q70 34 66 44 M42 72 L38 82 M58 72 L62 82 M28 62 L20 68" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  caishen: `<circle cx="50" cy="50" r="22" fill="currentColor" opacity=".2"/><path d="M50 28 L52 42 L66 44 L56 54 L60 68 L50 60 L40 68 L44 54 L34 44 L48 42 Z" fill="currentColor"/><text x="50" y="56" text-anchor="middle" font-size="18" font-weight="900" fill="#fff8d0" font-family="serif">财</text><circle cx="30" cy="30" r="2" fill="currentColor"/><circle cx="70" cy="30" r="2" fill="currentColor"/><circle cx="30" cy="70" r="2" fill="currentColor"/><circle cx="70" cy="70" r="2" fill="currentColor"/>`,
+  qionggui: `<path d="M35 40 Q35 32 42 30 L58 30 Q65 32 65 40 L65 55 Q65 60 60 62 L50 66 L40 62 Q35 60 35 55 Z M42 42 a2 2 0 1 1 0.1 0 M58 42 a2 2 0 1 1 0.1 0 M44 54 Q50 50 56 54" fill="currentColor" opacity=".8" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M40 68 L38 80 M60 68 L62 80 M50 66 L50 80" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><text x="50" y="90" text-anchor="middle" font-size="10" fill="currentColor" font-weight="700">空</text>`,
+};
+const FACTION_LABEL = {
+  qinglong: '青龙', baihu: '白虎', zhuque: '朱雀', xuanwu: '玄武'
+};
+// 数字对应的天干/地支/别名（每张不同），13 张覆盖 1-13
+const NUM_NAMES = ['一','二','三','四','五','六','七','八','九','十','十一','十二','十三'];
+const NUM_LEVEL = ['士','士','士','士','士','将','将','将','侯','侯','王','王','帝']; // 1-13 的头衔
+
+// 每张牌的成语彩头（阵营 × 数字），对应中式象征
+const IDIOMS = {
+  qinglong: [ // 东方木，龙 —— 生发、腾跃、变化
+    '潜龙勿用', '见龙在田', '龙蛇起陆', '鱼跃龙门', '云蒸龙变',
+    '龙腾虎跃', '生龙活虎', '游龙戏凤', '龙飞凤舞', '龙翔九天',
+    '真龙天子', '龙盘虎踞', '飞龙在天'
+  ],
+  baihu: [ // 西方金，虎 —— 威武、锐利、王者
+    '初生牛犊', '虎虎生风', '如虎添翼', '卧虎藏龙', '虎啸山林',
+    '龙争虎斗', '气吞万虎', '虎踞龙盘', '猛虎下山', '虎视眈眈',
+    '虎步生风', '虎啸风生', '百兽之王'
+  ],
+  zhuque: [ // 南方火，雀 —— 热烈、绚烂、涅槃
+    '雀跃三尺', '一飞冲天', '鸿鹄之志', '鸾翔凤集', '百鸟争鸣',
+    '凤鸣朝阳', '莺歌燕舞', '孔雀开屏', '鸾凤和鸣', '凤翥龙翔',
+    '丹凤朝阳', '百鸟朝凤', '凤凰涅槃'
+  ],
+  xuanwu: [ // 北方水，龟蛇 —— 稳重、长寿、玄机
+    '龟毛兔角', '灵龟负图', '稳如泰山', '固若金汤', '深藏若虚',
+    '玄机暗藏', '沉潜蓄势', '玄天玉宇', '龟鹤延年', '玄之又玄',
+    '玄冥有主', '斗转星移', '玄武当空'
+  ],
+};
+const SPECIAL_IDIOM = {
+  caishen: '财源广进',
+  qionggui: '囊空如洗',
+};
+
 function renderCardHTML(card, selectable, small, extra='') {
   const size = small ? 'small' : '';
   const sel = selectable ? 'selectable' : (small ? 'disabled' : '');
-  if (card.type === 'back') return `<div class="card back ${size}"></div>`;
-  if (card.type === 'caishen') return `<div class="card special-caishen ${size} ${sel}" ${extra}><div class="icon">💰</div><div class="faction">财神</div></div>`;
-  if (card.type === 'qionggui') return `<div class="card special-qionggui ${size} ${sel}" ${extra}><div class="icon">🥢</div><div class="faction">穷鬼</div></div>`;
-  const f = FACTIONS[card.faction];
-  return `<div class="card faction-${card.faction} ${size} ${sel}" ${extra}><div class="num">${card.num}</div><div class="faction">${f.icon}${f.short}</div></div>`;
+  if (card.type === 'back') {
+    return `<div class="card back ${size}" ${extra}>
+      <svg viewBox="0 0 100 150">
+        <text x="50" y="90" text-anchor="middle" font-size="60" font-weight="900" font-family="serif">财</text>
+        <rect x="8" y="8" width="84" height="134" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="50" cy="30" r="4" fill="currentColor"/><circle cx="50" cy="120" r="4" fill="currentColor"/>
+      </svg>
+    </div>`;
+  }
+  if (card.type === 'caishen') {
+    return `<div class="card special-caishen ${size} ${sel}" ${extra}>
+      <svg viewBox="0 0 100 150" style="color: var(--fc);">
+        <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">财</text>
+        <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">财</text>
+        <g transform="translate(0 22)">${TOTEMS.caishen}</g>
+        <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.caishen}</text>
+        <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
+      </svg>
+    </div>`;
+  }
+  if (card.type === 'qionggui') {
+    return `<div class="card special-qionggui ${size} ${sel}" ${extra}>
+      <svg viewBox="0 0 100 150" style="color: var(--fc);">
+        <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">穷</text>
+        <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">穷</text>
+        <g transform="translate(0 22)">${TOTEMS.qionggui}</g>
+        <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.qionggui}</text>
+        <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5" stroke-dasharray="3 2"/>
+      </svg>
+    </div>`;
+  }
+
+  // 阵营牌
+  const f = FACTION_LABEL[card.faction];
+  const n = card.num;
+  const level = NUM_LEVEL[n-1];
+  const idiom = IDIOMS[card.faction][n-1] || '';
+  const isBig = n >= 11;
+  return `<div class="card faction-${card.faction} ${size} ${sel}" ${extra}>
+    <svg viewBox="0 0 100 150" style="color: var(--fc);">
+      <!-- 角标 -->
+      <text x="8" y="18" font-size="16" font-weight="800" fill="currentColor">${n}</text>
+      <text x="8" y="32" font-size="9" fill="currentColor" opacity=".85">${f.substr(0,1)}</text>
+      <text x="92" y="140" font-size="16" font-weight="800" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">${n}</text>
+      <text x="92" y="126" font-size="9" fill="currentColor" opacity=".85" text-anchor="end" transform="rotate(180 92 126)">${f.substr(0,1)}</text>
+      <!-- 中央图腾 -->
+      <g transform="translate(0 24) scale(${isBig?1.0:0.85}) translate(0 ${isBig?-3:5})">${TOTEMS[card.faction]}</g>
+      <!-- 头衔+成语（大牌 8+ 显示；小牌只显示数字与图腾，保持简洁） -->
+      ${n >= 8 ? `
+        <text x="50" y="108" text-anchor="middle" font-size="8" font-weight="600" fill="currentColor" opacity=".65">${level}</text>
+        <text x="50" y="128" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1.5">${idiom}</text>
+      ` : `
+        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".7" letter-spacing="1.5">${idiom}</text>
+      `}
+      <!-- 装饰框 -->
+      <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".4"/>
+      ${n === 13 ? `<circle cx="15" cy="145" r="3" fill="currentColor" opacity=".6"/><circle cx="85" cy="5" r="3" fill="currentColor" opacity=".6"/>` : ''}
+    </svg>
+  </div>`;
 }
 
 // ---------- 动作 ----------
@@ -690,17 +822,35 @@ async function quickJoin(code) {
   wsSend({ type: 'join', room: code, name: S.myName });
 }
 function leaveRoom() {
+  // 通知服务端我要真的离开（把座位释放掉），而不是简单断连
+  if (S.ws && S.ws.readyState === 1) {
+    try { S.ws.send(JSON.stringify({ type: 'leave' })); } catch(e){}
+  }
   S.roomCode = null; S.mySeat = null; S.view = null; S.urlRoomCode = null;
+  // 清 myId：下次进不同房间不会带着老 id
+  localStorage.removeItem('caishen_myId');
+  S.myId = null;
   history.replaceState(null, '', location.pathname);
-  try { S.ws.close(); } catch(e){}
-  S.connected = false; setConnBadge();
   goto('home');
-  setTimeout(() => connectWS(), 500);
 }
 function tryPlay(idx) {
   const v = S.view;
-  if (!v || v.turnSeat !== S.mySeat) return;
-  if (!isCardLegalClient(v.myHand, idx, v.currentTrick)) { toast('不能出：必须跟首出阵营'); return; }
+  if (!v) { toast('数据未就绪，请稍等'); return; }
+  if (v.pendingBidSeat < v.players.length) {
+    // 还没所有人押完
+    const curBidder = v.bidOrder[v.pendingBidSeat];
+    if (curBidder === S.mySeat) toast('请先押把（下方按钮）');
+    else toast(`等 ${v.players[curBidder].name} 押把完成再出牌`);
+    return;
+  }
+  if (v.turnSeat !== S.mySeat) {
+    toast(`还没轮到你 · 当前 ${v.players[v.turnSeat].name}`);
+    return;
+  }
+  if (!isCardLegalClient(v.myHand, idx, v.currentTrick)) {
+    toast('这张牌不能出：必须跟首出阵营');
+    return;
+  }
   wsSend({ type: 'play', cardIdx: idx });
 }
 
