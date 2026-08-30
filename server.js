@@ -122,10 +122,36 @@ class Room {
     if (this.players.length >= 6) return { err: '房间已满（最多 6 人）' };
     if (this.players.some(p => p.name === name)) return { err: '昵称已存在，请换一个' };
     const seat = this.players.length;
-    const p = { id, name, ws, seat, connected: true };
+    const p = { id, name, ws, seat, connected: true, isAI: false };
     this.players.push(p);
     if (this.hostId == null) this.hostId = id;
     return { seat };
+  }
+
+  addAI() {
+    if (this.state !== 'waiting') return { err: '游戏已开始，不能加 AI' };
+    if (this.players.length >= 6) return { err: '房间已满' };
+    // AI 昵称：机器·关羽/李逵/孙悟空/林黛玉/贾宝玉/诸葛亮
+    const pool = ['关羽','李逵','孙悟空','林黛玉','贾宝玉','诸葛亮','武则天','唐僧'];
+    let idx = 0;
+    let name;
+    do {
+      name = '机器·' + pool[idx % pool.length];
+      idx++;
+    } while (this.players.some(p => p.name === name) && idx < 100);
+    const seat = this.players.length;
+    const p = { id: 'ai_' + Math.random().toString(36).slice(2,10), name, ws: null, seat, connected: true, isAI: true };
+    this.players.push(p);
+    return { seat };
+  }
+
+  removeAIAt(seat) {
+    if (this.state !== 'waiting') return { err: '游戏中不能删 AI' };
+    const idx = this.players.findIndex(p => p.seat === seat && p.isAI);
+    if (idx < 0) return { err: '该座位不是 AI' };
+    this.players.splice(idx, 1);
+    this.players.forEach((p, i) => p.seat = i);
+    return {};
   }
 
   removePlayer(id) {
@@ -270,6 +296,37 @@ class Room {
     return {};
   }
 
+  // ---- 服务端 AI 决策 ----
+  aiCalcBid(seat) {
+    const hand = this.hands[seat];
+    let expected = 0;
+    hand.forEach(c => {
+      if (c.t === 'caishen') expected += 1;
+      else if (c.t === 'qionggui') expected += 0;
+      else if (this.trump && c.f === this.trump && c.n >= 8) expected += 0.7;
+      else if (c.n >= 11) expected += 0.5;
+    });
+    let bid = Math.round(expected);
+    const priorSum = this.bids.reduce((s,b) => s + (b||0), 0);
+    const remaining = hand.length - priorSum;
+    if (remaining <= 0) bid = Math.max(0, bid - 1);
+    if (bid < 0) bid = 0;
+    if (bid > hand.length) bid = hand.length;
+    return bid;
+  }
+
+  aiCalcPlay(seat) {
+    const hand = this.hands[seat];
+    const legal = hand.map((_,i)=>i).filter(i => isCardLegal(hand, i, this.currentTrick));
+    if (legal.length === 0) return 0;
+    const need = this.bids[seat] - this.wins[seat];
+    const remaining = hand.length;
+    const wantWin = need > 0 && need >= (remaining - need);
+    const strength = c => c.t==='caishen'?100 : c.t==='qionggui'?-1 : c.n;
+    const sorted = legal.slice().sort((a,b) => strength(hand[a]) - strength(hand[b]));
+    return wantWin ? sorted[sorted.length-1] : sorted[0];
+  }
+
   // 生成推送给某座位的视图（其他人手牌数字不可见，只显示"?"张数）
   viewFor(seat) {
     return {
@@ -286,6 +343,7 @@ class Room {
       players: this.players.map(p => ({
         seat: p.seat, name: p.name,
         connected: p.connected, isHost: p.id === this.hostId,
+        isAI: p.isAI || false,
       })),
       bids: this.bids,           // 公开
       wins: this.wins,
@@ -314,19 +372,74 @@ function genCode() {
 // -------- WebSocket --------
 const wss = new WebSocketServer({ server });
 
+// 全局广播（AI 调度器也要用）
+function broadcast(room) {
+  room.players.forEach(p => {
+    if (!p.isAI && p.connected && p.ws && p.ws.readyState === 1) {
+      try { p.ws.send(JSON.stringify({ type: 'state', view: room.viewFor(p.seat) })); } catch(e){}
+    }
+  });
+}
+
+// AI 自动出手调度：如果当前该行动的座位是 AI，就自动走
+const _aiTimers = new Map(); // roomCode -> timer
+function scheduleAI(room) {
+  if (!room) return;
+  if (_aiTimers.has(room.code)) { clearTimeout(_aiTimers.get(room.code)); _aiTimers.delete(room.code); }
+  if (room.state !== 'playing') return;
+
+  // 押把阶段
+  if (room.pendingBidSeat < room.players.length) {
+    const seat = room.getBidOrder()[room.pendingBidSeat];
+    const p = room.players[seat];
+    if (!p.isAI) return;
+    const t = setTimeout(() => {
+      _aiTimers.delete(room.code);
+      if (room.state !== 'playing') return;
+      if (room.pendingBidSeat >= room.players.length) return;
+      const curSeat = room.getBidOrder()[room.pendingBidSeat];
+      if (curSeat !== seat) return;
+      const bid = room.aiCalcBid(seat);
+      room.submitBid(seat, bid);
+      broadcast(room);
+      scheduleAI(room);
+    }, 700);
+    _aiTimers.set(room.code, t);
+    return;
+  }
+
+  // 出牌阶段
+  const seat = room.turnSeat;
+  const p = room.players[seat];
+  if (!p.isAI) return;
+  const expectedTrickLen = room.currentTrick.length;
+  const t = setTimeout(() => {
+    _aiTimers.delete(room.code);
+    if (room.state !== 'playing') return;
+    if (room.turnSeat !== seat) return;
+    if (room.currentTrick.length !== expectedTrickLen) return;
+    const cardIdx = room.aiCalcPlay(seat);
+    const r = room.playCard(seat, cardIdx);
+    broadcast(room);
+    if (r.trickDone) {
+      setTimeout(() => {
+        room.advanceAfterTrick();
+        broadcast(room);
+        scheduleAI(room);
+      }, 1500);
+    } else {
+      scheduleAI(room);
+    }
+  }, 900);
+  _aiTimers.set(room.code, t);
+}
+
 wss.on('connection', (ws) => {
   ws.id = Math.random().toString(36).slice(2, 12);
   ws.roomCode = null;
   ws.seat = null;
 
   const send = (obj) => { try { ws.send(JSON.stringify(obj)); } catch(e){} };
-  const broadcast = (room) => {
-    room.players.forEach(p => {
-      if (p.connected && p.ws && p.ws.readyState === 1) {
-        try { p.ws.send(JSON.stringify({ type: 'state', view: room.viewFor(p.seat) })); } catch(e){}
-      }
-    });
-  };
 
   ws.on('message', (raw) => {
     let msg;
@@ -350,7 +463,8 @@ wss.on('connection', (ws) => {
       const name = (msg.name || '玩家').slice(0, 12);
       const room = rooms.get(code);
       if (!room) return send({ type: 'error', msg: '房间不存在' });
-      // 重连：如果 myId 匹配已有玩家
+
+      // 1) 优先：myId 精确匹配 → 直接回座位
       if (msg.myId) {
         const p = room.players.find(pl => pl.id === msg.myId);
         if (p) {
@@ -361,8 +475,30 @@ wss.on('connection', (ws) => {
           return;
         }
       }
+
+      // 2) 兜底：按昵称回座位（换设备/清缓存/退出重进都能回来）
+      const offlinePeer = room.players.find(pl => pl.name === name && !pl.connected);
+      if (offlinePeer) {
+        const oldId = offlinePeer.id;
+        offlinePeer.id = ws.id;
+        offlinePeer.ws = ws;
+        offlinePeer.connected = true;
+        // 房主身份跟着新 id 转移
+        if (room.hostId === oldId) room.hostId = ws.id;
+        ws.roomCode = code; ws.seat = offlinePeer.seat;
+        send({ type: 'joined', code, seat: offlinePeer.seat, myId: ws.id, reconnect: true });
+        broadcast(room);
+        return;
+      }
+
+      // 3) 新玩家
       const r = room.addPlayer(ws.id, name, ws);
-      if (r.err) return send({ type: 'error', msg: r.err });
+      if (r.err) {
+        if (r.err.includes('游戏已开始')) {
+          return send({ type: 'error', msg: '房间在游戏中，如你是掉线请用相同昵称重新加入' });
+        }
+        return send({ type: 'error', msg: r.err });
+      }
       ws.roomCode = code; ws.seat = r.seat;
       send({ type: 'joined', code, seat: r.seat, myId: ws.id });
       broadcast(room);
@@ -377,6 +513,23 @@ wss.on('connection', (ws) => {
       const r = room.start();
       if (r.err) return send({ type: 'error', msg: r.err });
       broadcast(room);
+      scheduleAI(room);
+      return;
+    }
+
+    if (msg.type === 'addAI') {
+      if (room.hostId !== ws.id) return send({ type: 'error', msg: '只有房主可以加 AI' });
+      const r = room.addAI();
+      if (r.err) return send({ type: 'error', msg: r.err });
+      broadcast(room);
+      return;
+    }
+
+    if (msg.type === 'removeAI') {
+      if (room.hostId !== ws.id) return send({ type: 'error', msg: '只有房主可以移除 AI' });
+      const r = room.removeAIAt(msg.seat);
+      if (r.err) return send({ type: 'error', msg: r.err });
+      broadcast(room);
       return;
     }
 
@@ -384,6 +537,7 @@ wss.on('connection', (ws) => {
       const r = room.submitBid(ws.seat, msg.bid);
       if (r.err) return send({ type: 'error', msg: r.err });
       broadcast(room);
+      scheduleAI(room);
       return;
     }
 
@@ -392,11 +546,13 @@ wss.on('connection', (ws) => {
       if (r.err) return send({ type: 'error', msg: r.err });
       broadcast(room);
       if (r.trickDone) {
-        // 展示 1.5 秒后自动进入下一把 / 结算
         setTimeout(() => {
           room.advanceAfterTrick();
           broadcast(room);
+          scheduleAI(room);
         }, 1500);
+      } else {
+        scheduleAI(room);
       }
       return;
     }
@@ -406,6 +562,37 @@ wss.on('connection', (ws) => {
       const r = room.nextRound();
       if (r.err) return send({ type: 'error', msg: r.err });
       broadcast(room);
+      scheduleAI(room);
+      return;
+    }
+
+    if (msg.type === 'leave') {
+      // 用户主动离开：等待房间移除后不再回来
+      const room = rooms.get(ws.roomCode);
+      if (room) {
+        // 从 players 中移除，不管游戏状态
+        const idx = room.players.findIndex(p => p.id === ws.id);
+        if (idx >= 0) {
+          const wasHost = room.hostId === ws.id;
+          room.players.splice(idx, 1);
+          room.players.forEach((p, i) => p.seat = i);
+          if (room.players.length === 0) {
+            rooms.delete(ws.roomCode);
+          } else {
+            if (wasHost) room.hostId = room.players[0].id;
+            // 游戏中有人主动离开：为简化，回到 waiting 让房主重开
+            if (room.state !== 'waiting') {
+              room.state = 'waiting';
+              room.round = 0; room.hands = []; room.bids = []; room.wins = [];
+              room.scores = room.players.map(() => 0);
+              room.currentTrick = [];
+            }
+            broadcast(room);
+          }
+        }
+      }
+      ws.roomCode = null; ws.seat = null;
+      send({ type: 'leftOk' });
       return;
     }
 
