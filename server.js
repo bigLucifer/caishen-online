@@ -381,58 +381,84 @@ function broadcast(room) {
   });
 }
 
-// AI 自动出手调度：如果当前该行动的座位是 AI，就自动走
-const _aiTimers = new Map(); // roomCode -> timer
-function scheduleAI(room) {
-  if (!room) return;
-  if (_aiTimers.has(room.code)) { clearTimeout(_aiTimers.get(room.code)); _aiTimers.delete(room.code); }
-  if (room.state !== 'playing') return;
+// AI 自动出手：改成"每个房间一个持续轮询定时器"，简单可靠
+const _aiTimers = new Map(); // roomCode -> interval id
+function startAILoop(room) {
+  if (_aiTimers.has(room.code)) return; // 已有循环
+  const interval = setInterval(() => {
+    // 房间不存在 or 结束 → 停
+    if (!rooms.has(room.code)) { clearInterval(interval); _aiTimers.delete(room.code); return; }
+    if (room.state === 'gameend') { clearInterval(interval); _aiTimers.delete(room.code); return; }
 
-  // 押把阶段
-  if (room.pendingBidSeat < room.players.length) {
-    const seat = room.getBidOrder()[room.pendingBidSeat];
-    const p = room.players[seat];
-    if (!p.isAI) return;
-    const t = setTimeout(() => {
-      _aiTimers.delete(room.code);
-      if (room.state !== 'playing') return;
-      if (room.pendingBidSeat >= room.players.length) return;
-      const curSeat = room.getBidOrder()[room.pendingBidSeat];
-      if (curSeat !== seat) return;
-      const bid = room.aiCalcBid(seat);
-      room.submitBid(seat, bid);
-      broadcast(room);
-      scheduleAI(room);
-    }, 700);
-    _aiTimers.set(room.code, t);
-    return;
-  }
-
-  // 出牌阶段
-  const seat = room.turnSeat;
-  const p = room.players[seat];
-  if (!p.isAI) return;
-  const expectedTrickLen = room.currentTrick.length;
-  const t = setTimeout(() => {
-    _aiTimers.delete(room.code);
+    // 非游戏中（等待/结算）→ 什么都不做，等下次轮询
     if (room.state !== 'playing') return;
-    if (room.turnSeat !== seat) return;
-    if (room.currentTrick.length !== expectedTrickLen) return;
-    const cardIdx = room.aiCalcPlay(seat);
-    const r = room.playCard(seat, cardIdx);
-    broadcast(room);
-    if (r.trickDone) {
-      setTimeout(() => {
-        room.advanceAfterTrick();
+
+    // 押把阶段：如果当前该押的是 AI，就替它押
+    if (room.pendingBidSeat < room.players.length) {
+      const seat = room.getBidOrder()[room.pendingBidSeat];
+      const p = room.players[seat];
+      if (p && p.isAI) {
+        const bid = room.aiCalcBid(seat);
+        const r = room.submitBid(seat, bid);
+        if (r.err) {
+          console.warn(`AI ${p.name} 押把失败:`, r.err);
+          room.submitBid(seat, 0); // 兜底
+        }
         broadcast(room);
-        scheduleAI(room);
-      }, 1500);
-    } else {
-      scheduleAI(room);
+      }
+      return;
     }
-  }, 900);
-  _aiTimers.set(room.code, t);
+
+    // 出牌阶段：若当前该出的是 AI 且未打完
+    if (room.currentTrick.length < room.players.length) {
+      const seat = room.turnSeat;
+      const p = room.players[seat];
+      if (p && p.isAI) {
+        const cardIdx = room.aiCalcPlay(seat);
+        const r = room.playCard(seat, cardIdx);
+        if (r.err) {
+          console.warn(`AI ${p.name} 出牌失败:`, r.err);
+          // 兜底：出第一张合法牌
+          const hand = room.hands[seat];
+          for (let i = 0; i < hand.length; i++) {
+            if (isCardLegal(hand, i, room.currentTrick)) {
+              const r2 = room.playCard(seat, i);
+              if (!r2.err) { broadcast(room); if (r2.trickDone) scheduleAdvance(room); return; }
+            }
+          }
+          console.error(`AI ${p.name} 无法出任何牌，跳过`);
+          return;
+        }
+        broadcast(room);
+        if (r.trickDone) scheduleAdvance(room);
+      }
+      return;
+    }
+    // 3 张都在 trick → 等 advance 定时器
+  }, 800);
+  _aiTimers.set(room.code, interval);
 }
+
+// 独立的推进定时器：每次 trick 满员后 1.5s 结算并 advance
+const _advanceTimers = new Map();
+function scheduleAdvance(room) {
+  if (_advanceTimers.has(room.code)) return;
+  const t = setTimeout(() => {
+    _advanceTimers.delete(room.code);
+    if (!rooms.has(room.code)) return;
+    room.advanceAfterTrick();
+    broadcast(room);
+  }, 1500);
+  _advanceTimers.set(room.code, t);
+}
+
+function stopAILoop(room) {
+  if (_aiTimers.has(room.code)) { clearInterval(_aiTimers.get(room.code)); _aiTimers.delete(room.code); }
+  if (_advanceTimers.has(room.code)) { clearTimeout(_advanceTimers.get(room.code)); _advanceTimers.delete(room.code); }
+}
+
+// 兼容旧调用名
+function scheduleAI(room) { if (room) startAILoop(room); }
 
 wss.on('connection', (ws) => {
   ws.id = Math.random().toString(36).slice(2, 12);
@@ -545,15 +571,8 @@ wss.on('connection', (ws) => {
       const r = room.playCard(ws.seat, msg.cardIdx);
       if (r.err) return send({ type: 'error', msg: r.err });
       broadcast(room);
-      if (r.trickDone) {
-        setTimeout(() => {
-          room.advanceAfterTrick();
-          broadcast(room);
-          scheduleAI(room);
-        }, 1500);
-      } else {
-        scheduleAI(room);
-      }
+      if (r.trickDone) scheduleAdvance(room);
+      // AI 循环一直在跑，不用额外调度
       return;
     }
 
