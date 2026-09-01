@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>版本诊断</title>
+<style>
+  body { font-family: -apple-system, sans-serif; padding: 20px; background: #f5f5f5; }
+  h2 { color: #c23a2f; }
+  .test { background: #fff; padding: 15px; border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .old { color: #999; }
+  .new { color: #2f7a3a; font-weight: bold; }
+  .card-sample { display: inline-block; margin: 5px; border: 2px solid #333; border-radius: 8px; padding: 10px; background: #fff; }
+  .card-old { width: 64px; height: 96px; }
+  .card-new { width: 78px; height: 116px; }
+</style>
+</head>
+<body>
+<h2>财神大战 · 版本诊断</h2>
+<div class="test">
+  <b>你现在加载的是这个页面：</b><br>
+  <span id="url"></span><br>
+  <b>加载时间：</b><span id="time"></span><br>
+  <b>页面已重载次数（记事本）：</b><span id="reload"></span>
+</div>
+
+<div class="test">
+  <b>老版本卡牌大小示意（64×96）：</b><br>
+  <div class="card-sample card-old">
+    <div style="font-size: 22px; font-weight: bold;">13</div>
+    <div style="font-size: 12px;">龙</div>
+  </div>
+  <br>
+  <b>新版本卡牌大小示意（78×116）：</b><br>
+  <div class="card-sample card-new">
+    <div style="font-size: 22px; font-weight: bold;">13</div>
+    <div style="font-size: 12px;">龙</div>
+  </div>
+</div>
+
+<div class="test">
+  <b>去玩游戏：</b><br>
+  <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 18px; background: #d9a521; color: #000; text-decoration: none; border-radius: 6px; font-weight: bold;">进入游戏（清缓存版）</a>
+</div>
+
+<div class="test">
+  <b>怎么诊断：</b>
+  <ol>
+    <li>把这个链接<b>复制</b>发到微信里，再点开（微信内 Safari 独立缓存）</li>
+    <li>或者主屏 App 图标：<b>删了重装</b>（长按图标 → 删除）</li>
+    <li>或者：Safari 设置 → 清除历史记录与网站数据</li>
+  </ol>
+</div>
+
+<script>
+document.getElementById('url').textContent = location.href;
+document.getElementById('time').textContent = new Date().toLocaleString('zh-CN');
+const n = (parseInt(localStorage.getItem('diagn_visits') || '0') + 1);
+localStorage.setItem('diagn_visits', String(n));
+document.getElementById('reload').textContent = n;
+</script>
+</body>
+</html>
