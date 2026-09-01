@@ -256,26 +256,47 @@ function connectWS() {
     if (S.ws && S.ws.readyState === 1) { resolve(); return; }
     const ws = new WebSocket(wsUrl());
     S.ws = ws;
+    S.lastMsgAt = Date.now();
     ws.onopen = () => { S.connected = true; setConnBadge(); resolve(); };
     ws.onclose = () => {
       S.connected = false; setConnBadge();
-      // 3 秒后自动重连
+      // 1 秒后自动重连
       setTimeout(() => {
         if (!S.connected) connectWS().then(() => {
-          // 如果之前在房间里，尝试用 myId 重连
           if (S.roomCode && S.myId) {
             wsSend({ type: 'join', room: S.roomCode, name: S.myName, myId: S.myId });
           }
         }).catch(()=>{});
-      }, 2000);
+      }, 1000);
     };
     ws.onerror = () => { /* 让 onclose 处理 */ };
     ws.onmessage = (ev) => {
+      S.lastMsgAt = Date.now();
       let msg; try { msg = JSON.parse(ev.data); } catch(e) { return; }
       handleMsg(msg);
     };
   });
 }
+
+// 僵尸检测：如果在游戏中且 5 秒没收到任何消息，主动重连
+setInterval(() => {
+  if (!S.roomCode || !S.myId) return;
+  if (!S.lastMsgAt) return;
+  const idle = Date.now() - S.lastMsgAt;
+  if (idle > 5000) {
+    console.log('[watchdog] 5s no msg, force reconnect');
+    S.lastMsgAt = Date.now();
+    try { S.ws && S.ws.close(); } catch(e){}
+    connectWS().then(() => {
+      wsSend({ type: 'join', room: S.roomCode, name: S.myName, myId: S.myId });
+    }).catch(()=>{});
+  } else if (idle > 3000) {
+    // 3 秒没消息，主动 ping
+    if (S.ws && S.ws.readyState === 1) {
+      try { S.ws.send(JSON.stringify({ type: 'ping' })); } catch(e){}
+    }
+  }
+}, 2000);
 
 function wsSend(obj) {
   if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(obj));
@@ -361,7 +382,7 @@ function renderHome(app) {
         <button class="ghost" style="flex:1;" onclick="shareLink()">复制邀请链接</button>
       </div>
     </div>
-    <div class="footer-note">v0.7 · 联机版 · 大卡牌 + AI 循环 · 2026-09-01</div>
+    <div class="footer-note">v0.8 · 联机版 · 修 WS 僵尸连接 · 2026-09-01</div>
   `;
 }
 

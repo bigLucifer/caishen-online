@@ -623,6 +623,11 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'ping') {
       send({ type: 'pong' });
+      // 顺便重发一次最新 state，防止客户端错过更新
+      if (ws.roomCode && ws.seat != null) {
+        const r = rooms.get(ws.roomCode);
+        if (r) send({ type: 'state', view: r.viewFor(ws.seat) });
+      }
       return;
     }
   });
