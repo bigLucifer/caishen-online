@@ -66,15 +66,15 @@
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .row + .row { margin-top: 8px; }
 
-  /* 卡牌 —— 精致版 */
+  /* 卡牌 —— 精致版（v0.7 放大 + 突出数字/花色） */
   .card {
     position: relative; display: inline-block;
-    width: 64px; height: 96px; border-radius: 8px;
-    background: #fdfaf0; box-shadow: 0 2px 6px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.6);
+    width: 78px; height: 116px; border-radius: 10px;
+    background: #fdfaf0; box-shadow: 0 3px 8px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.6);
     flex-shrink: 0; transition: transform .12s ease; overflow: hidden;
     border: 1.5px solid rgba(0,0,0,.15);
   }
-  .card.small { width: 52px; height: 78px; }
+  .card.small { width: 62px; height: 92px; }
 
   /* 阵营主色调 —— 通过 CSS 变量控制角标、图腾颜色 */
   .card.faction-qinglong  { --fc: #2f7a3a; --fbg: #eaf5eb; --fbg2: #d5eadb; }
@@ -194,6 +194,13 @@
   .rules-section h4 { color: var(--gold-deep); margin-top: 10px; margin-bottom: 4px; }
   .rules-section ul { padding-left: 20px; margin: 4px 0; }
   .footer-note { text-align: center; font-size: 11px; color:#a89268; margin: 20px 0; letter-spacing: 2px; }
+
+  /* AI 思考中省略号动画 */
+  .dots { display: inline-block; margin-left: 3px; }
+  .dots span { display: inline-block; opacity: .3; animation: dotFade 1.2s infinite; }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotFade { 0%, 100% { opacity: .3; } 40% { opacity: 1; } }
 
   @media (max-width: 360px) {
     .card { width: 54px; height: 80px; }
@@ -547,13 +554,17 @@ function renderMyHand(v) {
   const hand = v.myHand;
   const myTurn = v.pendingBidSeat >= v.players.length && v.turnSeat === S.mySeat;
   let statusText = '';
+  const dots = '<span class="dots"><span>·</span><span>·</span><span>·</span></span>';
   if (v.pendingBidSeat < v.players.length) {
     const cur = v.bidOrder[v.pendingBidSeat];
-    statusText = cur === S.mySeat ? '<span style="color:var(--red);">请先押把</span>' : `<span style="color:#8a6a1e;">等 ${escapeHtml(v.players[cur].name)} 押把</span>`;
+    const curP = v.players[cur];
+    if (cur === S.mySeat) statusText = '<span style="color:var(--red);">请你押把</span>';
+    else statusText = `<span style="color:#8a6a1e;">${curP.isAI?'🤖 ':''}${escapeHtml(curP.name)} 押把中${dots}</span>`;
   } else if (myTurn) {
     statusText = '<span style="color:var(--red);">轮到你出牌</span>';
   } else {
-    statusText = `<span style="color:#8a6a1e;">等 ${escapeHtml(v.players[v.turnSeat].name)} 出牌</span>`;
+    const curP = v.players[v.turnSeat];
+    statusText = `<span style="color:#8a6a1e;">${curP.isAI?'🤖 ':''}${escapeHtml(curP.name)} 出牌中${dots}</span>`;
   }
   return `
     <div class="hand-area">
@@ -747,10 +758,10 @@ function renderCardHTML(card, selectable, small, extra='') {
   if (card.type === 'caishen') {
     return `<div class="card special-caishen ${size} ${sel}" ${extra}>
       <svg viewBox="0 0 100 150" style="color: var(--fc);">
-        <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">财</text>
-        <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">财</text>
-        <g transform="translate(0 22)">${TOTEMS.caishen}</g>
-        <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.caishen}</text>
+        <text x="10" y="26" font-size="20" font-weight="800" fill="currentColor" font-family="serif">财</text>
+        <text x="90" y="140" font-size="20" font-weight="800" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">财</text>
+        <g transform="translate(0 20)">${TOTEMS.caishen}</g>
+        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.caishen}</text>
         <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
       </svg>
     </div>`;
@@ -758,10 +769,10 @@ function renderCardHTML(card, selectable, small, extra='') {
   if (card.type === 'qionggui') {
     return `<div class="card special-qionggui ${size} ${sel}" ${extra}>
       <svg viewBox="0 0 100 150" style="color: var(--fc);">
-        <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">穷</text>
-        <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">穷</text>
-        <g transform="translate(0 22)">${TOTEMS.qionggui}</g>
-        <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.qionggui}</text>
+        <text x="10" y="26" font-size="20" font-weight="800" fill="currentColor" font-family="serif">穷</text>
+        <text x="90" y="140" font-size="20" font-weight="800" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">穷</text>
+        <g transform="translate(0 20)">${TOTEMS.qionggui}</g>
+        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.qionggui}</text>
         <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5" stroke-dasharray="3 2"/>
       </svg>
     </div>`;
@@ -775,19 +786,20 @@ function renderCardHTML(card, selectable, small, extra='') {
   const isBig = n >= 11;
   return `<div class="card faction-${card.faction} ${size} ${sel}" ${extra}>
     <svg viewBox="0 0 100 150" style="color: var(--fc);">
-      <!-- 角标 -->
-      <text x="8" y="18" font-size="16" font-weight="800" fill="currentColor">${n}</text>
-      <text x="8" y="32" font-size="9" fill="currentColor" opacity=".85">${f.substr(0,1)}</text>
-      <text x="92" y="140" font-size="16" font-weight="800" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">${n}</text>
-      <text x="92" y="126" font-size="9" fill="currentColor" opacity=".85" text-anchor="end" transform="rotate(180 92 126)">${f.substr(0,1)}</text>
+      <!-- 左上角：大数字 + 阵营字 -->
+      <text x="10" y="26" font-size="22" font-weight="900" fill="currentColor" font-family="serif">${n}</text>
+      <text x="10" y="40" font-size="12" font-weight="700" fill="currentColor" opacity=".85">${f.substr(0,1)}</text>
+      <!-- 右下角：大数字（倒） -->
+      <text x="90" y="140" font-size="22" font-weight="900" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">${n}</text>
+      <text x="90" y="126" font-size="12" font-weight="700" fill="currentColor" opacity=".85" text-anchor="end" transform="rotate(180 90 126)">${f.substr(0,1)}</text>
       <!-- 中央图腾 -->
-      <g transform="translate(0 24) scale(${isBig?1.0:0.85}) translate(0 ${isBig?-3:5})">${TOTEMS[card.faction]}</g>
-      <!-- 头衔+成语（大牌 8+ 显示；小牌只显示数字与图腾，保持简洁） -->
+      <g transform="translate(0 20) scale(${isBig?1.05:0.9}) translate(0 ${isBig?-3:5})">${TOTEMS[card.faction]}</g>
+      <!-- 头衔+成语 -->
       ${n >= 8 ? `
-        <text x="50" y="108" text-anchor="middle" font-size="8" font-weight="600" fill="currentColor" opacity=".65">${level}</text>
-        <text x="50" y="128" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1.5">${idiom}</text>
+        <text x="50" y="106" text-anchor="middle" font-size="9" font-weight="600" fill="currentColor" opacity=".65">${level}</text>
+        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1.5">${idiom}</text>
       ` : `
-        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".7" letter-spacing="1.5">${idiom}</text>
+        <text x="50" y="124" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".7" letter-spacing="1.5">${idiom}</text>
       `}
       <!-- 装饰框 -->
       <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".4"/>

@@ -14,7 +14,7 @@
 
   .card {
     position: relative; display: inline-block;
-    width: 80px; height: 120px; border-radius: 10px;
+    width: 100px; height: 148px; border-radius: 12px;
     background: #fdfaf0;
     box-shadow: 0 3px 10px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.6);
     overflow: hidden; border: 1.5px solid rgba(0,0,0,.15);
@@ -95,16 +95,16 @@ function normalCard(faction, n) {
   const isBig = n >= 11;
   return `<div class="card faction-${faction}">
     <svg viewBox="0 0 100 150" style="color: var(--fc);">
-      <text x="8" y="18" font-size="16" font-weight="800" fill="currentColor">${n}</text>
-      <text x="8" y="32" font-size="9" fill="currentColor" opacity=".85">${f.substr(0,1)}</text>
-      <text x="92" y="140" font-size="16" font-weight="800" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">${n}</text>
-      <text x="92" y="126" font-size="9" fill="currentColor" opacity=".85" text-anchor="end" transform="rotate(180 92 126)">${f.substr(0,1)}</text>
-      <g transform="translate(0 24) scale(${isBig?1.0:0.85}) translate(0 ${isBig?-3:5})">${TOTEMS[faction]}</g>
+      <text x="10" y="26" font-size="22" font-weight="900" fill="currentColor" font-family="serif">${n}</text>
+      <text x="10" y="40" font-size="12" font-weight="700" fill="currentColor" opacity=".85">${f.substr(0,1)}</text>
+      <text x="90" y="140" font-size="22" font-weight="900" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">${n}</text>
+      <text x="90" y="126" font-size="12" font-weight="700" fill="currentColor" opacity=".85" text-anchor="end" transform="rotate(180 90 126)">${f.substr(0,1)}</text>
+      <g transform="translate(0 20) scale(${isBig?1.05:0.9}) translate(0 ${isBig?-3:5})">${TOTEMS[faction]}</g>
       ${n >= 8 ? `
-        <text x="50" y="108" text-anchor="middle" font-size="8" font-weight="600" fill="currentColor" opacity=".65">${level}</text>
-        <text x="50" y="128" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1.5">${idiom}</text>
+        <text x="50" y="106" text-anchor="middle" font-size="9" font-weight="600" fill="currentColor" opacity=".65">${level}</text>
+        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1.5">${idiom}</text>
       ` : `
-        <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".7" letter-spacing="1.5">${idiom}</text>
+        <text x="50" y="124" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor" opacity=".7" letter-spacing="1.5">${idiom}</text>
       `}
       <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".4"/>
       ${n === 13 ? `<circle cx="15" cy="145" r="3" fill="currentColor" opacity=".6"/><circle cx="85" cy="5" r="3" fill="currentColor" opacity=".6"/>` : ''}
@@ -113,19 +113,19 @@ function normalCard(faction, n) {
 }
 function caishenCard() {
   return `<div class="card special-caishen"><svg viewBox="0 0 100 150" style="color: var(--fc);">
-    <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">财</text>
-    <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">财</text>
-    <g transform="translate(0 22)">${TOTEMS.caishen}</g>
-    <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.caishen}</text>
+    <text x="10" y="26" font-size="20" font-weight="800" fill="currentColor" font-family="serif">财</text>
+    <text x="90" y="140" font-size="20" font-weight="800" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">财</text>
+    <g transform="translate(0 20)">${TOTEMS.caishen}</g>
+    <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.caishen}</text>
     <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
   </svg></div>`;
 }
 function qiongguiCard() {
   return `<div class="card special-qionggui"><svg viewBox="0 0 100 150" style="color: var(--fc);">
-    <text x="8" y="18" font-size="14" font-weight="700" fill="currentColor">穷</text>
-    <text x="92" y="140" font-size="14" font-weight="700" fill="currentColor" text-anchor="end" transform="rotate(180 92 140)">穷</text>
-    <g transform="translate(0 22)">${TOTEMS.qionggui}</g>
-    <text x="50" y="128" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.qionggui}</text>
+    <text x="10" y="26" font-size="20" font-weight="800" fill="currentColor" font-family="serif">穷</text>
+    <text x="90" y="140" font-size="20" font-weight="800" fill="currentColor" font-family="serif" text-anchor="end" transform="rotate(180 90 140)">穷</text>
+    <g transform="translate(0 20)">${TOTEMS.qionggui}</g>
+    <text x="50" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" letter-spacing="2">${SPECIAL_IDIOM.qionggui}</text>
     <rect x="6" y="6" width="88" height="138" rx="5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5" stroke-dasharray="3 2"/>
   </svg></div>`;
 }
